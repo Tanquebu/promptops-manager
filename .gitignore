@@ -1,0 +1,18 @@
+SPEC.md
+
+# Backend
+backend/vendor/
+backend/.env
+backend/storage/logs/*.log
+backend/storage/framework/cache/data/
+backend/storage/framework/sessions/
+backend/storage/framework/views/
+backend/bootstrap/cache/*.php
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.env.local
+
+# Docker
+.DS_Store
