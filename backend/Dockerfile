@@ -6,6 +6,9 @@ RUN apk add --no-cache \
     zip \
     unzip \
     git \
+    autoconf \
+    g++ \
+    make \
     && docker-php-ext-install pdo pdo_pgsql zip pcntl
 
 RUN pecl install redis && docker-php-ext-enable redis
