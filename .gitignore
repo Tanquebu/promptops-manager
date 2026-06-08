@@ -2,6 +2,7 @@ SPEC.md
 
 # Backend
 backend/vendor/
+backend/.phpunit.result.cache
 backend/.env
 backend/storage/logs/*.log
 backend/storage/framework/cache/data/
