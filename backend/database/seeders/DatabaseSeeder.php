@@ -22,6 +22,7 @@ class DatabaseSeeder extends Seeder
 
         $this->seedSummarizeText();
         $this->seedExtractEntities();
+        $this->call(IntakePromptsSeeder::class);
     }
 
     private function seedSummarizeText(): void

@@ -278,6 +278,59 @@ The `fake` driver is used by the test suite and is safe to use in CI pipelines.
 
 ---
 
+## Real-world integration
+
+The sections above show the API in isolation. This section shows how PromptOps Manager replaces ad-hoc prompt storage in a real project.
+
+### Case study: intake (n8n automation pipeline)
+
+[intake](https://github.com/Tanquebu/intake) is a personal automation pipeline built on n8n that classifies content, filters job postings, and generates weekly briefings — all via Claude. Before this integration, its five prompts lived as Markdown files mounted into the n8n Docker container and read at runtime with `fs.readFileSync`. There was no versioning, no staging path, and no way to test a prompt change before it affected live runs.
+
+After the integration, each prompt is a registered resource in PromptOps Manager. The n8n workflow fetches the active production version at call time:
+
+**Before (file-based):**
+```javascript
+// n8n Code node — reads from a file mounted in the container
+const prompt = fs.readFileSync("/home/node/scripts/prompts/classify.md", "utf8")
+  .replace("{{url}}", url)
+  .replace("{{content}}", content)
+  .replace("{{tags}}", tags);
+```
+
+**After (registry-based):**
+```javascript
+// n8n Code node — fetches the active production version from PromptOps Manager
+const resp = await fetch("http://promptops:8000/api/prompts/classify-content/resolve?env=production");
+const { data } = await resp.json();
+const prompt = data.content
+  .replace("{{url}}", url)
+  .replace("{{content}}", content)
+  .replace("{{tags}}", tags);
+```
+
+The workflow now always runs against the version that has been explicitly promoted to production. Updating the prompt no longer means editing a file and restarting a container — it means creating a new version, running the test suite, and promoting when the tests pass.
+
+**Verify the registered prompts after seeding:**
+```bash
+# Resolve the classify-content prompt (no auth required)
+curl -s "http://localhost:8000/api/prompts/classify-content/resolve?env=production" | jq '{slug: .data.slug, variables: .data.variables}'
+# → {"slug": "classify-content", "variables": ["url", "content", "tags"]}
+
+# List all registered prompts
+TOKEN=$(curl -s -X POST http://localhost:8000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@promptops.test","password":"password"}' | jq -r '.data.token')
+
+curl -s http://localhost:8000/api/prompts \
+  -H "Authorization: Bearer $TOKEN" | jq '[.data[].slug]'
+# → ["summarize-text", "extract-entities", "classify-content", "weekly-briefing",
+#    "research-quickbrief", "research-deepdive", "job-filter"]
+```
+
+**A note on the public resolve endpoint:** `/resolve` requires no authentication by design — prompts are templates, not secrets, and removing auth friction makes it trivial to consume from any runtime (n8n, PHP, Python, curl). If your prompts contain proprietary logic and need access control, per-consumer read tokens are on the roadmap (see below).
+
+---
+
 ## Contributing
 
 1. Fork the repository and create a branch off `master`.
@@ -292,6 +345,7 @@ This is an early-stage project. Issues and discussions are very welcome — espe
 
 | Feature | Status | Notes |
 |---|---|---|
+| Consumer read tokens | Planned | Per-app API keys scoped to `/resolve` only; revocable independently of admin tokens |
 | Webhook notifications on test failure | Planned | POST to a configured URL when a run reaches `failed` or `error` |
 | CLI tool (`promptops push/pull/run`) | Planned | Sync prompts to local files; trigger test runs from terminal |
 | GitHub Actions integration | Planned | Run test suite against a PR's prompt changes before merge |
